@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juego IA vs Humano</title>
+  <link rel="stylesheet" href="../static/estilos.css">
+  <style>
+    /* Modal para imagen en pantalla completa */
+    #fullscreenModal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      animation: fadeIn 0.5s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    /* La imagen se mostrará ocupando el 90% del viewport y conservando su relación de aspecto */
+    #fullscreenModal img {
+      width: 90vw;
+      height: 90vh;
+      object-fit: contain;
+      border: 5px solid #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+      display: block;
+      margin: auto;
+    }
+    #fullscreenModal .close {
+      position: absolute;
+      top: 20px;
+      right: 35px;
+      color: #fff;
+      font-size: 40px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: color 0.3s;
+    }
+    #fullscreenModal .close:hover {
+      color: #ff4444;
+    }
+
+    /* Modal para resultados finales */
+    #finalModal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      overflow-y: auto;
+      animation: fadeIn 0.5s;
+    }
+    #finalModal .final-content {
+      background: #f9f9f9;
+      color: #333;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.7);
+      position: relative;
+    }
+    #finalModal .final-content h2 {
+      margin-top: 0;
+      text-align: center;
+      color: #0077cc;
+    }
+    #finalModal .final-content .close {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      color: #333;
+      font-size: 35px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: color 0.3s;
+    }
+    #finalModal .final-content .close:hover {
+      color: #ff4444;
+    }
+    /* Retroalimentación final */
+    #finalModal .final-content .feedback-item {
+      background: #ffecec;
+      border-left: 4px solid #ff5c5c;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+    #finalModal .final-content .feedback-item h3 {
+      margin: 0 0 5px;
+      font-size: 1.2em;
+      color: #d8000c;
+    }
+    #finalModal .final-content .feedback-item img {
+      max-width: 100%;
+      border-radius: 5px;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Botones -->
+  <div class="botones">
+    <button onclick="reiniciarJuego()"><span>🔁</span> Volver a Jugar</button>
+    <button onclick="siguienteImagen()"><span>➡️</span> Siguiente</button>
+  </div>    
+
+  <h1>✨ ¿La imagen fue creada por un humano o por IA? ✨</h1>
+  
+  <!-- Barra de progreso -->
+  <div class="progreso-container">
+    <div class="progreso" id="barraProgreso"></div>
+    <span id="progresoTexto">0/5</span>
+  </div>
+
+  <div class="contenedor">
+    <!-- Zona de Humano -->
+    <div class="zona" id="humano">
+      👨🏻‍🎨 Creada por Humano
+    </div>
+
+    <!-- Imagen para seleccionar -->
+    <div class="imagen-container" id="imagen-wrapper">
+      <!-- Se incluye srcset para alta resolución -->
+      <img id="imagen" src="./img/img1.jpg" alt="Imagen a clasificar">
+    </div>
+
+    <!-- Zona de IA -->
+    <div class="zona" id="ia">
+      🤖 Creada por IA
+    </div>
+  </div>
+
+  <!-- Resultado -->
+  <div class="resultado" id="resultado"></div>
+
+  <!-- Modal para imagen en pantalla completa -->
+  <div id="fullscreenModal">
+    <span class="close" onclick="cerrarFullscreen()">&times;</span>
+    <img id="fullscreenImage" src="" alt="Imagen en grande">
+  </div>
+
+  <!-- Modal para resultados finales -->
+  <div id="finalModal">
+    <div class="final-content">
+      <span class="close" onclick="cerrarFinalModal()">&times;</span>
+      <h2>Resultados Finales</h2>
+      <p id="finalScore"></p>
+      <div id="finalFeedback"></div>
+    </div>
+  </div>
+
+  <script>
+    // Función auxiliar que genera srcset a partir de la ruta de la imagen.
+    function getSrcset(path) {
+      // Se asume que la versión 2x tiene "@2x" antes de la extensión.
+      return `${path} 1x, ${path.replace(/(\\.[a-zA-Z0-9]+)$/, '@2x$1')} 2x`;
+    }
+
+    let imagenes = [
+      {"archivo": "../static/img/img1.png", "categoria": "IA", "explicacion": "La calma de una ciudad futurista iluminada al anochecer, donde cada detalle parece creado por una mente artificial."},
+      {"archivo": "../static/img/img2.png", "categoria": "Humano", "explicacion": "Un momento auténtico de juego, capturado por una persona en plena acción, mostrando la emoción real de correr a toda velocidad desde su teléfono."},
+      {"archivo": "../static/img/img4.jpg", "categoria": "IA", "explicacion": "Imagen generada por inteligencia artificial, mostrando un búho con detalles perfectos en su plumaje y mirada hipnótica."},
+      {"archivo": "../static/img/img3.png", "categoria": "Humano", "explicacion": "Fotografía real tomada por un humano, mostrando un auto deportivo en un estacionamiento vacío, con un enfoque perfecto al frente del vehículo."},
+      {"archivo": "../static/img/img5.png", "categoria": "IA", "explicacion": "Imagen creada por inteligencia artificial, con detalles realistas en el rostro y texturas perfectamente simuladas."},
+      {"archivo": "../static/img/img6.png", "categoria": "Humano", "explicacion": "Esta imagen fue capturada por un humano, mostrando la majestuosidad natural de las montañas y la tranquilidad del lago."},
+      {"archivo": "../static/img/img7.jpg", "categoria": "IA", "explicacion": "Esta imagen fue creada por inteligencia artificial, representando de manera realista un faro al atardecer."},
+      {"archivo": "../static/img/img8.jpg", "categoria": "Humano", "explicacion": "Esta imagen fue capturada por un humano, mostrando un ganso nadando tranquilamente en el agua"},
+      {"archivo": "../static/img/img9.jpg", "categoria": "IA", "explicacion": "Esta imagen de una librería ordenada y acogedora fue creada por inteligencia artificial."},
+      {"archivo": "../static/img/img10.jpg", "categoria": "Humano", "explicacion": "Esta hermosa escena en un campo de lavanda fue capturada por un humano."},{"archivo": "../static/img/frase1.png", "categoria": "IA", "explicacion": "La frase exhibe un lenguaje poético y estructurado, pero se percibe una falta de experiencia personal que le resta autenticidad."},
+      {"archivo": "../static/img/frase2.png", "categoria": "Humano", "explicacion": "Destaca por su observación minuciosa y un toque subjetivo, transmitiendo una experiencia única y personal."},
+      {"archivo": "../static/img/frase3.png", "categoria": "IA", "explicacion": "Su construcción es elegante y meticulosa, aunque carece de la calidez y perspectiva individual que caracteriza la creación humana."},
+      {"archivo": "../static/img/frase4.png", "categoria": "Humano", "explicacion": "Su narrativa íntima y realista captura la esencia de una experiencia cotidiana con un toque auténtico y personal."},
+      {"archivo": "../static/img/frase5.png", "categoria": "IA", "explicacion": "Presenta un estilo refinado y rítmico, pero se siente distante, sin el toque emocional derivado de la experiencia personal."},
+      {"archivo": "../static/img/frase6.png", "categoria": "Humano", "explicacion": "Utiliza un lenguaje lleno de matices y sensibilidad, reflejando la complejidad y la belleza de la experiencia humana."},
+      {"archivo": "../static/img/frase7.png", "categoria": "IA", "explicacion": "La frase es visualmente atractiva y precisa, pero su ausencia de vivencia personal la hace parecer generada por un algoritmo."},
+      {"archivo": "../static/img/frase8.png", "categoria": "Humano", "explicacion": "Con un estilo cálido y evocador, describe la escena con detalles precisos que generan una conexión emocional inmediata."},
+      {"archivo": "../static/img/frase9.png", "categoria": "IA", "explicacion": "Cuenta con un vocabulario sofisticado y una estructura impecable, aunque le falta la profundidad emocional que aporta la experiencia individual."},
+      {"archivo": "../static/img/frase10.png", "categoria": "Humano", "explicacion": "Presenta una observación honesta y rica en detalles, mostrando la profundidad y subjetividad inherentes a la experiencia personal."}
+
+    ];
+    
+    let puntaje = 0;
+    let imagenSeleccionada = false;
+    let totalPreguntas = 5;
+    let usadas = [];
+    let fallos = []; // Almacena feedback de errores
+
+    function obtenerImagenAleatoria() {
+      if (usadas.length >= totalPreguntas) {
+        usadas = [];
+      }
+      let indice;
+      do {
+        indice = Math.floor(Math.random() * imagenes.length);
+      } while (usadas.includes(indice));
+      usadas.push(indice);
+      return imagenes[indice];
+    }
+
+    let imagenActual = obtenerImagenAleatoria();
+    // Actualizar src y srcset en la imagen principal
+    const imagenEl = document.getElementById("imagen");
+    imagenEl.src = imagenActual.archivo;
+    imagenEl.setAttribute("srcset", getSrcset(imagenActual.archivo));
+
+    // Abrir imagen en pantalla completa al hacer click
+    imagenEl.addEventListener("click", function() {
+      abrirFullscreen();
+    });
+
+    function abrirFullscreen() {
+      let modal = document.getElementById("fullscreenModal");
+      let modalImg = document.getElementById("fullscreenImage");
+      modal.style.display = "block";
+      // Usar src y srcset para alta resolución
+      modalImg.src = imagenEl.src;
+      modalImg.setAttribute("srcset", imagenEl.getAttribute("srcset"));
+      // Asignar sizes para que la imagen se muestre a 90vw sin escalarse en exceso
+      modalImg.setAttribute("sizes", "(max-width: 768px) 90vw, 90vw");
+    }
+
+    function cerrarFullscreen() {
+      document.getElementById("fullscreenModal").style.display = "none";
+    }
+
+    // Función de selección: se activa al hacer click en la zona correspondiente
+    function seleccionar(categoriaSeleccionada, zona) {
+      if (imagenSeleccionada) return;
+      // Mueve el contenedor de la imagen a la zona seleccionada
+      let imagenContainer = document.getElementById("imagen-wrapper");
+      zona.appendChild(imagenContainer);
+      imagenSeleccionada = true;
+      
+      let resultadoTexto = "";
+      if (categoriaSeleccionada === imagenActual.categoria) {
+        puntaje++;
+        resultadoTexto = `✅ Correcto: ${imagenActual.explicacion}`;
+      } else {
+        resultadoTexto = `❌ Incorrecto: ${imagenActual.explicacion}`;
+        fallos.push({archivo: imagenActual.archivo, explicacion: imagenActual.explicacion});
+      }
+      document.getElementById("resultado").innerText = `${resultadoTexto}\nPuntaje: ${puntaje}`;
+      actualizarBarraProgreso();
+      // Desplazar la vista hacia el área de retroalimentación
+      document.getElementById("resultado").scrollIntoView({ behavior: "smooth" });
+    }
+
+    // Asignar listener de click a las zonas para la selección
+    document.getElementById("humano").addEventListener("click", function() {
+      seleccionar("Humano", this);
+    });
+    document.getElementById("ia").addEventListener("click", function() {
+      seleccionar("IA", this);
+    });
+
+    function siguienteImagen() {
+      // Verificar que se haya seleccionado una respuesta
+      if (!imagenSeleccionada) {
+        alert("Debes seleccionar una respuesta antes de continuar.");
+        return;
+      }
+      if (usadas.length >= totalPreguntas) {
+        mostrarFinalModal();
+        return;
+      }
+      imagenActual = obtenerImagenAleatoria();
+      imagenEl.src = imagenActual.archivo;
+      imagenEl.setAttribute("srcset", getSrcset(imagenActual.archivo));
+      document.getElementById("resultado").innerText = "";
+      imagenSeleccionada = false;
+      
+      // Reubicar la imagen a su posición original
+      let contenedor = document.querySelector(".contenedor");
+      contenedor.insertBefore(document.getElementById("imagen-wrapper"), contenedor.children[1]);
+      actualizarBarraProgreso();
+    }
+
+    function reiniciarJuego() {
+      puntaje = 0;
+      usadas = [];
+      fallos = [];
+      imagenActual = obtenerImagenAleatoria();
+      imagenEl.src = imagenActual.archivo;
+      imagenEl.setAttribute("srcset", getSrcset(imagenActual.archivo));
+      document.getElementById("resultado").innerText = "";
+      imagenSeleccionada = false;
+      
+      let contenedor = document.querySelector(".contenedor");
+      contenedor.insertBefore(document.getElementById("imagen-wrapper"), contenedor.children[1]);
+      
+      document.getElementById("barraProgreso").style.width = "0%";
+      document.getElementById("progresoTexto").innerText = `0/${totalPreguntas}`;
+    }
+
+    function actualizarBarraProgreso() {
+      let progreso = (usadas.length / totalPreguntas) * 100;
+      document.getElementById("barraProgreso").style.width = progreso + "%";
+      document.getElementById("progresoTexto").innerText = `${usadas.length}/${totalPreguntas}`;
+    }
+
+    function mostrarFinalModal() {
+      let finalModal = document.getElementById("finalModal");
+      let finalScore = document.getElementById("finalScore");
+      let finalFeedback = document.getElementById("finalFeedback");
+
+      finalScore.innerText = `Puntaje final: ${puntaje}/${totalPreguntas}`;
+      finalFeedback.innerHTML = "";
+
+      if (fallos.length > 0) {
+        fallos.forEach(fallo => {
+          let div = document.createElement("div");
+          div.className = "feedback-item";
+          div.innerHTML = `
+            <h3>Respuesta Incorrecta</h3>
+            <img src="${fallo.archivo}" alt="Imagen fallida">
+            <p><strong>Motivo:</strong> ${fallo.explicacion}</p>
+          `;
+          finalFeedback.appendChild(div);
+        });
+      } else {
+        finalFeedback.innerHTML = "<p>No hubo errores. ¡Bien hecho!</p>";
+      }
+      finalModal.style.display = "block";
+    }
+
+    // Al cerrar el modal final, se inicia un nuevo juego
+    function cerrarFinalModal() {
+      document.getElementById("finalModal").style.display = "none";
+      reiniciarJuego();
+    }
+  </script>
+</body>
+</html>
